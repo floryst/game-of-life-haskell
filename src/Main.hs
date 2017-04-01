@@ -7,6 +7,7 @@ import SDL.Event
 import Data.Maybe
 import Control.Monad (unless)
 import Foreign.C.Types
+import Debug.Trace
 
 data GameState = GameState {
   isPaused :: Bool,
@@ -72,6 +73,22 @@ handleKeyEvent gameState SDL.KeyboardEventData {
 -- fallthrough
 handleKeyEvent gameState _ = gameState
 
+-- Updates game state based on mouse events
+handleMouseEvent :: GameState -> SDL.MouseButtonEventData -> GameState
+handleMouseEvent gameState SDL.MouseButtonEventData {
+  mouseButtonEventWindow = _,
+  mouseButtonEventMotion = SDL.Pressed,
+  mouseButtonEventWhich = _,
+  -- only left button
+  mouseButtonEventButton = SDL.ButtonLeft,
+  -- only 1 click
+  mouseButtonEventClicks = 1,
+  mouseButtonEventPos = clickCoord
+} =
+  Debug.Trace.trace ("click: " ++ show clickCoord) $ gameState
+handleMouseEvent gameState _ = gameState
+
+
 updateState :: GameState -> Maybe SDL.Event -> IO GameState
 updateState gameState event = do
   case event of
@@ -81,6 +98,8 @@ updateState gameState event = do
           return gameState { shouldQuit = True }
         SDL.KeyboardEvent keyEvent -> do
           return (handleKeyEvent gameState keyEvent)
+        SDL.MouseButtonEvent mouseEvent -> do
+          return (handleMouseEvent gameState mouseEvent)
         _ -> do
           return gameState
     Nothing -> do
