@@ -12,6 +12,7 @@ data GameState = GameState {
   shouldQuit :: Bool
 } deriving (Show)
 
+-- NOT USED ANYMORE
 -- was a specific key pressed
 keyPressed :: SDL.Keycode -> SDL.EventPayload -> Bool
 keyPressed keycode (SDL.KeyboardEvent keyboardEvent) =
@@ -37,16 +38,21 @@ main = do
   SDL.destroyWindow window
   SDL.quit
 
+-- Updates game state base on key events
 handleKeyEvent :: GameState -> SDL.KeyboardEventData -> GameState
 handleKeyEvent gameState SDL.KeyboardEventData {
   keyboardEventWindow = _,
+  -- only keydown events
   keyboardEventKeyMotion = SDL.Pressed,
+  -- no repeat
   keyboardEventRepeat = False,
+  -- needs SDL.* qualifier since these symbols aren't imported to
+  -- primary scope.
   keyboardEventKeysym = SDL.Keysym {
-    -- needs SDL.* qualifier since these symbols aren't imported to
-    -- primary scope.
+    -- don't care about scancode
     SDL.keysymScancode = _,
     SDL.keysymKeycode = keyCode,
+    -- don't care about modifiers
     SDL.keysymModifier = _
   }
 } =
@@ -82,9 +88,11 @@ appLoop gameState renderer = do
 
   gameState <- updateState gameState event
 
+  -- white background
   SDL.rendererDrawColor renderer SDL.$= white
   SDL.clear renderer
 
+  -- black rectangle starting at (1,1) with width/height (40, 40)
   SDL.rendererDrawColor renderer SDL.$= black
   let rect = Just $ SDL.Rectangle (SDL.P (V2 1 1)) (V2 40 40)
   SDL.fillRect renderer rect
