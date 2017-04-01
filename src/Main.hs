@@ -56,6 +56,8 @@ handleKeyEvent gameState SDL.KeyboardEventData {
     -- Do I really need this?
     _ ->
       gameState
+-- fallthrough
+handleKeyEvent gameState _ = gameState
 
 updateState :: GameState -> Maybe SDL.Event -> IO GameState
 updateState gameState event = do
