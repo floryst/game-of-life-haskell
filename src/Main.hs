@@ -65,7 +65,6 @@ handleKeyEvent gameState SDL.KeyboardEventData {
   case keyCode of
     SDL.KeycodeQ ->
       gameState { shouldQuit = True }
-    -- Do I really need this?
     _ ->
       gameState
 -- fallthrough
@@ -80,7 +79,6 @@ updateState gameState event = do
           return gameState { shouldQuit = True }
         SDL.KeyboardEvent keyEvent -> do
           return (handleKeyEvent gameState keyEvent)
-        -- Do I really need this?
         _ -> do
           return gameState
     Nothing -> do
