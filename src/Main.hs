@@ -65,6 +65,8 @@ handleKeyEvent gameState SDL.KeyboardEventData {
   case keyCode of
     SDL.KeycodeQ ->
       gameState { shouldQuit = True }
+    SDL.KeycodeSpace ->
+      gameState { isPaused = not $ isPaused gameState }
     _ ->
       gameState
 -- fallthrough
