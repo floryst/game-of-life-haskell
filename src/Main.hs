@@ -6,11 +6,15 @@ import SDL.Vect
 import SDL.Event
 import Data.Maybe
 import Control.Monad (unless)
+import Foreign.C.Types
 
 data GameState = GameState {
   isPaused :: Bool,
   shouldQuit :: Bool
 } deriving (Show)
+
+windowWidth, windowHeight :: CInt
+(windowWidth, windowHeight) = (640, 480)
 
 -- NOT USED ANYMORE
 -- was a specific key pressed
@@ -23,7 +27,9 @@ keyPressed keycode _ = False
 main :: IO ()
 main = do
   SDL.initializeAll
-  window <- SDL.createWindow "Game Of Life" SDL.defaultWindow
+  window <- SDL.createWindow "Game Of Life" SDL.defaultWindow {
+    SDL.windowInitialSize = V2 windowWidth windowHeight
+  }
   renderer <- SDL.createRenderer window (-1) SDL.defaultRenderer
   
   let gameState = GameState {
