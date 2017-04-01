@@ -75,11 +75,17 @@ updateState gameState event = do
 appLoop :: GameState -> SDL.Renderer -> IO ()
 appLoop gameState renderer = do
   event <- SDL.pollEvent
-  let color = V4 0 255 0 255
+  let white = V4 255 255 255 255
+      black = V4 0 0 0 255
 
   gameState <- updateState gameState event
 
-  SDL.rendererDrawColor renderer SDL.$= color
+  SDL.rendererDrawColor renderer SDL.$= white
   SDL.clear renderer
+
+  SDL.rendererDrawColor renderer SDL.$= black
+  let rect = Just $ SDL.Rectangle (SDL.P (V2 1 1)) (V2 40 40)
+  SDL.fillRect renderer rect
+
   SDL.present renderer
   unless (shouldQuit gameState) (appLoop gameState renderer)
