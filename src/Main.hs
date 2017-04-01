@@ -100,6 +100,8 @@ appLoop gameState renderer = do
 
   -- black rectangle starting at (1,1) with width/height (40, 40)
   SDL.rendererDrawColor renderer SDL.$= black
+  -- SDL.P creates a point
+  -- Docs: https://hackage.haskell.org/package/sdl2-2.2.0/docs/SDL-Vect.html#t:Point
   let rect = Just $ SDL.Rectangle (SDL.P $ V2 1 1) (V2 40 40)
   SDL.fillRect renderer rect
 
