@@ -11,11 +11,22 @@ import Debug.Trace
 
 data GameState = GameState {
   isPaused :: Bool,
-  shouldQuit :: Bool
+  shouldQuit :: Bool,
+  grid :: [Bool]
 } deriving (Show)
 
 windowWidth, windowHeight :: CInt
-(windowWidth, windowHeight) = (640, 480)
+(windowWidth, windowHeight) = (900, 900)
+
+-- cell dimensions must be a square, and a factor of window width/height
+cellSideLength :: Int
+cellSideLength = 10
+
+initialGrid :: [Bool]
+initialGrid = replicate ((winWidth `quot` sideLen) * (winHeight `quot` sideLen)) False
+  where winWidth = fromIntegral windowWidth
+        winHeight = fromIntegral windowHeight
+        sideLen = cellSideLength
 
 -- NOT USED ANYMORE
 -- was a specific key pressed
@@ -35,7 +46,8 @@ main = do
   
   let gameState = GameState {
     isPaused = False,
-    shouldQuit = False
+    shouldQuit = False,
+    grid = initialGrid
   }
 
   -- main loop
