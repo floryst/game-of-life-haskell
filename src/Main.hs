@@ -5,14 +5,14 @@ import qualified SDL
 import SDL.Vect
 import SDL.Event
 import Data.Maybe
-import Control.Monad (unless)
+import Control.Monad (unless, guard)
 import Foreign.C.Types
 import Debug.Trace
 
 data GameState = GameState {
     isPaused :: Bool,
     shouldQuit :: Bool,
-    grid :: [Bool]
+    grid :: [[Bool]]
 } deriving (Show)
 
 windowWidth, windowHeight :: CInt
@@ -23,13 +23,11 @@ windowWidth, windowHeight :: CInt
 cellSideLength :: Int
 cellSideLength = 10
 
-initialGrid :: [Bool]
-initialGrid =
-    replicate ((winWidth `quot` sideLen) * (winHeight `quot` sideLen)) False
+initialGrid :: [[Bool]]
+initialGrid = replicate height . replicate width $ False
   where
-    winWidth = fromIntegral windowWidth
-    winHeight = fromIntegral windowHeight
-    sideLen = cellSideLength
+    height = (fromIntegral windowHeight) `quot` cellSideLength
+    width = (fromIntegral windowWidth) `quot` cellSideLength
 
 -- NOT USED ANYMORE
 -- was a specific key pressed
@@ -120,24 +118,52 @@ updateState gameState event = do
         Nothing -> do
             return gameState
 
-appLoop :: GameState -> SDL.Renderer -> IO ()
-appLoop gameState renderer = do
-    event <- SDL.pollEvent
+getAliveCellCoords :: GameState -> [(Int, Int)]
+getAliveCellCoords gameState = do
+    (y, row) <- enumerate cellGrid
+    (x, cell) <- enumerate row
+    guard cell
+    return (x, y)
+  where
+    cellGrid = grid gameState
+    enumerate = zip [0..]
+
+-- converts to coords in window space
+coordToWinPos :: (Int, Int) -> (Int, Int)
+coordToWinPos (x, y) =
+    (fromIntegral $ x * cellSideLength, fromIntegral $ y * cellSideLength)
+
+-- draws a cell at window coords
+drawCell :: SDL.Renderer -> (Int, Int) -> IO ()
+drawCell renderer (x, y) =
+    -- SDL.P creates a point
+    -- Docs: https://hackage.haskell.org/package/sdl2-2.2.0/docs/SDL-Vect.html#t:Point
+    SDL.fillRect renderer $ Just $ SDL.Rectangle (SDL.P $ V2 cx cy) (V2 len len)
+  where
+    -- square side length
+    len  = fromIntegral cellSideLength
+    -- CInt x and y
+    cx = fromIntegral x
+    cy = fromIntegral y
+
+drawGrid :: GameState -> SDL.Renderer-> IO ()
+drawGrid gameState renderer = do
+    -- colors
     let white = V4 255 255 255 255
         black = V4 0 0 0 255
 
-    gameState <- updateState gameState event
-
-    -- white background
     SDL.rendererDrawColor renderer SDL.$= white
     SDL.clear renderer
 
-    -- black rectangle starting at (1,1) with width/height (40, 40)
     SDL.rendererDrawColor renderer SDL.$= black
-    -- SDL.P creates a point
-    -- Docs: https://hackage.haskell.org/package/sdl2-2.2.0/docs/SDL-Vect.html#t:Point
-    let rect = Just $ SDL.Rectangle (SDL.P $ V2 1 1) (V2 40 40)
-    SDL.fillRect renderer rect
-
+    let aliveCells = map coordToWinPos $ getAliveCellCoords gameState
+      in
+        mapM_ (drawCell renderer) aliveCells
     SDL.present renderer
+
+appLoop :: GameState -> SDL.Renderer -> IO ()
+appLoop gameState renderer = do
+    event <- SDL.pollEvent
+    gameState <- updateState gameState event
+    drawGrid gameState renderer
     unless (shouldQuit gameState) (appLoop gameState renderer)
