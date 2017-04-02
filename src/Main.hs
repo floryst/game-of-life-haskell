@@ -101,7 +101,7 @@ handleMouseEvent gameState SDL.MouseButtonEventData {
     Debug.Trace.trace ("click: " ++ show clickCoord) $ gameState
 handleMouseEvent gameState _ = gameState
 
-
+-- updates game state based on events
 updateState :: GameState -> Maybe SDL.Event -> IO GameState
 updateState gameState event = do
     case event of
@@ -118,6 +118,7 @@ updateState gameState event = do
         Nothing -> do
             return gameState
 
+-- get coords (in grid space) of alive cells
 getAliveCellCoords :: GameState -> [(Int, Int)]
 getAliveCellCoords gameState = do
     (y, row) <- enumerate cellGrid
@@ -128,7 +129,7 @@ getAliveCellCoords gameState = do
     cellGrid = grid gameState
     enumerate = zip [0..]
 
--- converts to coords in window space
+-- converts from coords in grid space to coords in window space
 coordToWinPos :: (Int, Int) -> (Int, Int)
 coordToWinPos (x, y) =
     (fromIntegral $ x * cellSideLength, fromIntegral $ y * cellSideLength)
@@ -146,6 +147,7 @@ drawCell renderer (x, y) =
     cx = fromIntegral x
     cy = fromIntegral y
 
+-- draws grid
 drawGrid :: GameState -> SDL.Renderer-> IO ()
 drawGrid gameState renderer = do
     -- colors
