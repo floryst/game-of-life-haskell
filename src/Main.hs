@@ -19,6 +19,7 @@ windowWidth, windowHeight :: CInt
 (windowWidth, windowHeight) = (900, 900)
 
 -- cell dimensions must be a square, and a factor of window width/height
+-- that is, window width/height must be a multiple of cell side length
 cellSideLength :: Int
 cellSideLength = 10
 
