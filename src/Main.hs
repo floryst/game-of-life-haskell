@@ -23,6 +23,14 @@ windowWidth, windowHeight :: CInt
 cellSideLength :: Int
 cellSideLength = 10
 
+-- converts from coords in grid space to coords in window space
+gridToWindowCoord :: (Int, Int) -> (Int, Int)
+gridToWindowCoord (x, y) = (x * cellSideLength, y * cellSideLength)
+
+-- converts from window space to grid space
+windowToGridCoord :: (Int, Int) -> (Int, Int)
+windowToGridCoord (x, y) = (x `quot` cellSideLength, y `quot` cellSideLength)
+
 initialGrid :: [[Bool]]
 initialGrid = replicate height . replicate width $ False
   where
@@ -86,6 +94,23 @@ handleKeyEvent gameState SDL.KeyboardEventData {
 -- fallthrough
 handleKeyEvent gameState _ = gameState
 
+-- toggle state of cell at grid coord (x, y)
+toggleCellState :: (Int, Int) -> GameState -> GameState
+toggleCellState targetCoord gameState = gameState { grid = newGrid }
+  where
+    newGrid = do
+        (y, row) <- enumerate cellGrid
+        return $ do
+            (x, cell) <- enumerate row
+            return $
+                if targetCoord == (x, y)
+                    then not cell
+                    else cell
+      where
+        cellGrid = grid gameState
+        enumerate = zip [0..]
+
+
 -- Updates game state based on mouse events
 handleMouseEvent :: GameState -> SDL.MouseButtonEventData -> GameState
 handleMouseEvent gameState SDL.MouseButtonEventData {
@@ -96,9 +121,12 @@ handleMouseEvent gameState SDL.MouseButtonEventData {
     mouseButtonEventButton = SDL.ButtonLeft,
     -- only 1 click
     mouseButtonEventClicks = 1,
-    mouseButtonEventPos = clickCoord
+    mouseButtonEventPos = SDL.P (V2 clickX clickY)
 } =
-    Debug.Trace.trace ("click: " ++ show clickCoord) $ gameState
+    toggleCellState (windowToGridCoord (winX, winY)) gameState
+  where
+    winX = fromIntegral clickX
+    winY = fromIntegral clickY
 handleMouseEvent gameState _ = gameState
 
 -- updates game state based on events
@@ -129,11 +157,6 @@ getAliveCellCoords gameState = do
     cellGrid = grid gameState
     enumerate = zip [0..]
 
--- converts from coords in grid space to coords in window space
-coordToWinPos :: (Int, Int) -> (Int, Int)
-coordToWinPos (x, y) =
-    (fromIntegral $ x * cellSideLength, fromIntegral $ y * cellSideLength)
-
 -- draws a cell at window coords
 drawCell :: SDL.Renderer -> (Int, Int) -> IO ()
 drawCell renderer (x, y) =
@@ -158,7 +181,7 @@ drawGrid gameState renderer = do
     SDL.clear renderer
 
     SDL.rendererDrawColor renderer SDL.$= black
-    let aliveCells = map coordToWinPos $ getAliveCellCoords gameState
+    let aliveCells = map gridToWindowCoord $ getAliveCellCoords gameState
       in
         mapM_ (drawCell renderer) aliveCells
     SDL.present renderer
