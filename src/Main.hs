@@ -9,6 +9,7 @@ import Control.Monad (unless, guard)
 import Foreign.C.Types
 import Debug.Trace
 import Data.Vector ((!))
+import Data.List (elemIndex)
 import Data.Word (Word32)
 import qualified Data.Vector as Vector
 
@@ -18,15 +19,24 @@ data GameState = GameState {
     isPaused :: Bool,
     shouldQuit :: Bool,
     grid :: CellGrid,
-    lastUpdateTime :: Word32
+    lastUpdateTime :: Int,
+    stepSpeed :: Int
 } deriving (Show)
 
 windowWidth, windowHeight :: CInt
 (windowWidth, windowHeight) = (900, 900)
 
 -- in milliseconds
-gameTimeStep :: Word32
-gameTimeStep = 1000
+gameTimeSteps :: [Int]
+gameTimeSteps = [10, 50, 100, 200, 500, 1000]
+
+gameTimeStepKeys :: [SDL.Keycode]
+gameTimeStepKeys = [SDL.Keycode1,
+                    SDL.Keycode2,
+                    SDL.Keycode3,
+                    SDL.Keycode4,
+                    SDL.Keycode5,
+                    SDL.Keycode6]
 
 -- cell dimensions must be a square, and a factor of window width/height
 -- that is, window width/height must be a multiple of cell side length
@@ -122,12 +132,13 @@ handleKeyEvent gameState SDL.KeyboardEventData {
     }
 } =
     case keyCode of
-      SDL.KeycodeQ ->
-          gameState { shouldQuit = True }
-      SDL.KeycodeSpace ->
-          gameState { isPaused = not $ isPaused gameState }
-      _ ->
-          gameState
+        SDL.KeycodeQ -> gameState { shouldQuit = True }
+        SDL.KeycodeSpace -> gameState { isPaused = not $ isPaused gameState }
+        keyCode | keyCode `elem` gameTimeStepKeys ->
+                    gameState {
+                        stepSpeed = gameTimeSteps !! fromMaybe 0 (elemIndex keyCode gameTimeStepKeys)
+                    }
+                | otherwise -> gameState
 -- fallthrough
 handleKeyEvent gameState _ = gameState
 
@@ -213,10 +224,12 @@ appLoop gameState renderer = do
     gameState <- processEvents gameState event
     drawGrid (grid gameState) renderer
 
-    ticks <- SDL.ticks
+    t <- SDL.ticks
+    -- must be different name than variable 't'. Otherwise, loop will break.
+    let ticks = fromIntegral t
     gameState <- do
         if not $ isPaused gameState
-            then if (lastUpdateTime gameState) + gameTimeStep < ticks
+            then if (lastUpdateTime gameState) + (stepSpeed gameState) < ticks
                 then return gameState {
                     grid = stepGameOfLife $ grid gameState,
                     lastUpdateTime = ticks
@@ -241,7 +254,8 @@ main = do
         isPaused = True,
         shouldQuit = False,
         grid = initialGrid,
-        lastUpdateTime = 0
+        lastUpdateTime = 0,
+        stepSpeed = 100
     }
 
     -- main loop
