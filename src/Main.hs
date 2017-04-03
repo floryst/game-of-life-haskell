@@ -91,7 +91,7 @@ liveNeighbors x y cellGrid = sum $ map fromEnum neighbors
 stepGameOfLife :: CellGrid -> CellGrid
 stepGameOfLife cellGrid = newGrid
   where
-    gameRule cell neighs = (neighs >= 2 && cell) || neighs == 3
+    gameRule cell neighs = (neighs >= 2 && neighs < 4 && cell) || neighs == 3
     -- for every row,
     newGrid = Vector.map updateRow $ Vector.indexed cellGrid
     -- for every cell,
