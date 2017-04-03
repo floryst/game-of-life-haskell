@@ -21,7 +21,7 @@ windowWidth, windowHeight :: CInt
 -- cell dimensions must be a square, and a factor of window width/height
 -- that is, window width/height must be a multiple of cell side length
 cellSideLength :: Int
-cellSideLength = 10
+cellSideLength = 20
 
 -- converts from coords in grid space to coords in window space
 gridToWindowCoord :: (Int, Int) -> (Int, Int)
@@ -191,4 +191,5 @@ appLoop gameState renderer = do
     event <- SDL.pollEvent
     gameState <- updateState gameState event
     drawGrid gameState renderer
+    SDL.delay 10
     unless (shouldQuit gameState) (appLoop gameState renderer)
