@@ -11,10 +11,12 @@ import Debug.Trace
 import Data.Vector ((!))
 import qualified Data.Vector as Vector
 
+type CellGrid = Vector.Vector (Vector.Vector Bool)
+
 data GameState = GameState {
     isPaused :: Bool,
     shouldQuit :: Bool,
-    grid :: Vector.Vector (Vector.Vector Bool)
+    grid :: CellGrid
 } deriving (Show)
 
 windowWidth, windowHeight :: CInt
@@ -34,14 +36,14 @@ windowToGridCoord :: (Int, Int) -> (Int, Int)
 windowToGridCoord (x, y) = (x `quot` cellSideLength, y `quot` cellSideLength)
 
 -- generates initial grid
-initialGrid :: Vector.Vector (Vector.Vector Bool)
+initialGrid :: CellGrid
 initialGrid = Vector.replicate height . Vector.replicate width $ False
   where
     height = (fromIntegral windowHeight) `quot` cellSideLength
     width = (fromIntegral windowWidth) `quot` cellSideLength
 
 -- access grid as if on a torus
-gridAt :: Vector.Vector (Vector.Vector Bool) -> (Int, Int) -> Bool
+gridAt :: CellGrid -> (Int, Int) -> Bool
 gridAt cellGrid (x, y) = (cellGrid!(y `mod` height))!(x `mod` width)
   where
     height = length cellGrid
@@ -49,43 +51,38 @@ gridAt cellGrid (x, y) = (cellGrid!(y `mod` height))!(x `mod` width)
     width = length $ cellGrid!1
 
 -- toggle state of cell at grid coord (x, y)
-toggleCellState :: (Int, Int) -> GameState -> GameState
-toggleCellState targetCoord gameState = gameState { grid = newGrid }
+toggleCellState :: (Int, Int) -> CellGrid -> CellGrid
+toggleCellState targetCoord cellGrid = Vector.fromList $ do
+    (y, row) <- enumerate $ Vector.toList cellGrid
+    return $ Vector.fromList $ do
+        (x, cell) <- enumerate $ Vector.toList row
+        return $
+            if targetCoord == (x, y)
+                then not cell
+                else cell
   where
-    newGrid = Vector.fromList $ do
-        (y, row) <- enumerate $ Vector.toList cellGrid
-        return $ Vector.fromList $ do
-            (x, cell) <- enumerate $ Vector.toList row
-            return $
-                if targetCoord == (x, y)
-                    then not cell
-                    else cell
-      where
-        cellGrid = grid gameState
-        enumerate = zip [0..]
+    enumerate = zip [0..]
 
 -- get coords (in grid space) of alive cells
-getAliveCellCoords :: GameState -> [(Int, Int)]
-getAliveCellCoords gameState = do
+getAliveCellCoords :: CellGrid  -> [(Int, Int)]
+getAliveCellCoords cellGrid = do
     (y, row) <- enumerate $ Vector.toList cellGrid
     (x, cell) <- enumerate $ Vector.toList row
     guard cell
     return (x, y)
   where
-    cellGrid = grid gameState
     enumerate = zip [0..]
 
-liveNeighbors :: Int -> Int -> Vector.Vector (Vector.Vector Bool) -> Int
+liveNeighbors :: Int -> Int -> CellGrid -> Int
 liveNeighbors x y cellGrid = sum $ map fromEnum neighbors
   where
     neighborLocations =
         [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     neighbors = map (gridAt cellGrid) neighborLocations
 
-stepGameOfLife :: GameState -> GameState
-stepGameOfLife gameState = gameState { grid = newGrid }
+stepGameOfLife :: CellGrid -> CellGrid
+stepGameOfLife cellGrid = newGrid
   where
-    cellGrid = grid gameState
     gameRule cell neighs = (neighs >= 2 && cell) || neighs == 3
     -- for every row,
     newGrid = Vector.map updateRow $ Vector.indexed cellGrid
@@ -138,8 +135,11 @@ handleMouseEvent gameState SDL.MouseButtonEventData {
     mouseButtonEventClicks = 1,
     mouseButtonEventPos = SDL.P (V2 clickX clickY)
 } =
-    toggleCellState (windowToGridCoord (winX, winY)) gameState
+    let newGrid = toggleCellState (windowToGridCoord (winX, winY)) $ cellGrid
+      in
+        gameState { grid = newGrid }
   where
+    cellGrid = grid gameState
     winX = fromIntegral clickX
     winY = fromIntegral clickY
 handleMouseEvent gameState _ = gameState
@@ -179,8 +179,8 @@ drawCell renderer (x, y) =
     cy = fromIntegral y
 
 -- draws grid
-drawGrid :: GameState -> SDL.Renderer-> IO ()
-drawGrid gameState renderer = do
+drawGrid :: CellGrid -> SDL.Renderer-> IO ()
+drawGrid cellGrid renderer = do
     -- colors
     let white = V4 255 255 255 255
         black = V4 0 0 0 255
@@ -189,7 +189,7 @@ drawGrid gameState renderer = do
     SDL.clear renderer
 
     SDL.rendererDrawColor renderer SDL.$= black
-    let aliveCells = map gridToWindowCoord $ getAliveCellCoords gameState
+    let aliveCells = map gridToWindowCoord $ getAliveCellCoords $ cellGrid
       in
         mapM_ (drawCell renderer) aliveCells
     SDL.present renderer
@@ -203,7 +203,7 @@ appLoop :: GameState -> SDL.Renderer -> IO ()
 appLoop gameState renderer = do
     event <- SDL.pollEvent
     gameState <- processEvents gameState event
-    drawGrid gameState renderer
+    drawGrid (grid gameState) renderer
     SDL.delay 10
     unless (shouldQuit gameState) (appLoop gameState renderer)
 
