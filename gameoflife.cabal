@@ -1,8 +1,8 @@
 name:                gameoflife
 version:             0.1.0.0
--- synopsis:
--- description:
--- homepage:            https://github.com/githubuser/gameoflife#readme
+synopsis:            Conway's Game of Life
+description:         Game of Life, implemented in Haskell.
+homepage:            https://github.com/floryst/game-of-life-haskell
 license:             BSD3
 license-file:        LICENSE
 author:              Forrest Li
@@ -13,18 +13,11 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-library
-  hs-source-dirs:      src
-  exposed-modules:     Lib
-  build-depends:       base >= 4.7 && < 5
-  default-language:    Haskell2010
-
-executable gameoflife-exe
+executable gameoflife
   hs-source-dirs:      src
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base, sdl2, linear, vector
-                     , gameoflife
   default-language:    Haskell2010
 
 test-suite gameoflife-test
