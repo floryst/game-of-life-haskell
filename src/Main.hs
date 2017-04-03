@@ -186,6 +186,7 @@ drawGrid gameState renderer = do
         mapM_ (drawCell renderer) aliveCells
     SDL.present renderer
 
+-- main app loop
 appLoop :: GameState -> SDL.Renderer -> IO ()
 appLoop gameState renderer = do
     event <- SDL.pollEvent
