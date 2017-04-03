@@ -8,11 +8,12 @@ import Data.Maybe
 import Control.Monad (unless, guard)
 import Foreign.C.Types
 import Debug.Trace
+import qualified Data.Vector as Vector
 
 data GameState = GameState {
     isPaused :: Bool,
     shouldQuit :: Bool,
-    grid :: [[Bool]]
+    grid :: Vector.Vector (Vector.Vector Bool)
 } deriving (Show)
 
 windowWidth, windowHeight :: CInt
@@ -32,8 +33,8 @@ windowToGridCoord :: (Int, Int) -> (Int, Int)
 windowToGridCoord (x, y) = (x `quot` cellSideLength, y `quot` cellSideLength)
 
 -- generates initial grid
-initialGrid :: [[Bool]]
-initialGrid = replicate height . replicate width $ False
+initialGrid :: Vector.Vector (Vector.Vector Bool)
+initialGrid = Vector.replicate height . Vector.replicate width $ False
   where
     height = (fromIntegral windowHeight) `quot` cellSideLength
     width = (fromIntegral windowWidth) `quot` cellSideLength
@@ -42,10 +43,10 @@ initialGrid = replicate height . replicate width $ False
 toggleCellState :: (Int, Int) -> GameState -> GameState
 toggleCellState targetCoord gameState = gameState { grid = newGrid }
   where
-    newGrid = do
-        (y, row) <- enumerate cellGrid
-        return $ do
-            (x, cell) <- enumerate row
+    newGrid = Vector.fromList $ do
+        (y, row) <- enumerate $ Vector.toList cellGrid
+        return $ Vector.fromList $ do
+            (x, cell) <- enumerate $ Vector.toList row
             return $
                 if targetCoord == (x, y)
                     then not cell
@@ -57,8 +58,8 @@ toggleCellState targetCoord gameState = gameState { grid = newGrid }
 -- get coords (in grid space) of alive cells
 getAliveCellCoords :: GameState -> [(Int, Int)]
 getAliveCellCoords gameState = do
-    (y, row) <- enumerate cellGrid
-    (x, cell) <- enumerate row
+    (y, row) <- enumerate $ Vector.toList cellGrid
+    (x, cell) <- enumerate $ Vector.toList row
     guard cell
     return (x, y)
   where
