@@ -31,40 +31,43 @@ gridToWindowCoord (x, y) = (x * cellSideLength, y * cellSideLength)
 windowToGridCoord :: (Int, Int) -> (Int, Int)
 windowToGridCoord (x, y) = (x `quot` cellSideLength, y `quot` cellSideLength)
 
+-- generates initial grid
 initialGrid :: [[Bool]]
 initialGrid = replicate height . replicate width $ False
   where
     height = (fromIntegral windowHeight) `quot` cellSideLength
     width = (fromIntegral windowWidth) `quot` cellSideLength
 
--- NOT USED ANYMORE
--- was a specific key pressed
-keyPressed :: SDL.Keycode -> SDL.EventPayload -> Bool
-keyPressed keycode (SDL.KeyboardEvent keyboardEvent) =
-    SDL.keyboardEventKeyMotion keyboardEvent == SDL.Pressed &&
-    SDL.keysymKeycode (SDL.keyboardEventKeysym keyboardEvent) == keycode
-keyPressed keycode _ = False
+-- toggle state of cell at grid coord (x, y)
+toggleCellState :: (Int, Int) -> GameState -> GameState
+toggleCellState targetCoord gameState = gameState { grid = newGrid }
+  where
+    newGrid = do
+        (y, row) <- enumerate cellGrid
+        return $ do
+            (x, cell) <- enumerate row
+            return $
+                if targetCoord == (x, y)
+                    then not cell
+                    else cell
+      where
+        cellGrid = grid gameState
+        enumerate = zip [0..]
 
-main :: IO ()
-main = do
-    SDL.initializeAll
-    window <- SDL.createWindow "Game Of Life" SDL.defaultWindow {
-        SDL.windowInitialSize = V2 windowWidth windowHeight
-    }
-    renderer <- SDL.createRenderer window (-1) SDL.defaultRenderer
+-- get coords (in grid space) of alive cells
+getAliveCellCoords :: GameState -> [(Int, Int)]
+getAliveCellCoords gameState = do
+    (y, row) <- enumerate cellGrid
+    (x, cell) <- enumerate row
+    guard cell
+    return (x, y)
+  where
+    cellGrid = grid gameState
+    enumerate = zip [0..]
 
-    let gameState = GameState {
-        isPaused = False,
-        shouldQuit = False,
-        grid = initialGrid
-    }
-
-    -- main loop
-    appLoop gameState renderer
-
-    -- teardown resources
-    SDL.destroyWindow window
-    SDL.quit
+--
+-- Event handling
+--
 
 -- Updates game state base on key events
 handleKeyEvent :: GameState -> SDL.KeyboardEventData -> GameState
@@ -94,23 +97,6 @@ handleKeyEvent gameState SDL.KeyboardEventData {
 -- fallthrough
 handleKeyEvent gameState _ = gameState
 
--- toggle state of cell at grid coord (x, y)
-toggleCellState :: (Int, Int) -> GameState -> GameState
-toggleCellState targetCoord gameState = gameState { grid = newGrid }
-  where
-    newGrid = do
-        (y, row) <- enumerate cellGrid
-        return $ do
-            (x, cell) <- enumerate row
-            return $
-                if targetCoord == (x, y)
-                    then not cell
-                    else cell
-      where
-        cellGrid = grid gameState
-        enumerate = zip [0..]
-
-
 -- Updates game state based on mouse events
 handleMouseEvent :: GameState -> SDL.MouseButtonEventData -> GameState
 handleMouseEvent gameState SDL.MouseButtonEventData {
@@ -130,8 +116,8 @@ handleMouseEvent gameState SDL.MouseButtonEventData {
 handleMouseEvent gameState _ = gameState
 
 -- updates game state based on events
-updateState :: GameState -> Maybe SDL.Event -> IO GameState
-updateState gameState event = do
+processEvents :: GameState -> Maybe SDL.Event -> IO GameState
+processEvents gameState event = do
     case event of
         Just ev -> do
             case SDL.eventPayload ev of
@@ -146,16 +132,9 @@ updateState gameState event = do
         Nothing -> do
             return gameState
 
--- get coords (in grid space) of alive cells
-getAliveCellCoords :: GameState -> [(Int, Int)]
-getAliveCellCoords gameState = do
-    (y, row) <- enumerate cellGrid
-    (x, cell) <- enumerate row
-    guard cell
-    return (x, y)
-  where
-    cellGrid = grid gameState
-    enumerate = zip [0..]
+--
+-- Drawing
+--
 
 -- draws a cell at window coords
 drawCell :: SDL.Renderer -> (Int, Int) -> IO ()
@@ -186,11 +165,36 @@ drawGrid gameState renderer = do
         mapM_ (drawCell renderer) aliveCells
     SDL.present renderer
 
+--
+-- Main
+--
+
 -- main app loop
 appLoop :: GameState -> SDL.Renderer -> IO ()
 appLoop gameState renderer = do
     event <- SDL.pollEvent
-    gameState <- updateState gameState event
+    gameState <- processEvents  gameState event
     drawGrid gameState renderer
     SDL.delay 10
     unless (shouldQuit gameState) (appLoop gameState renderer)
+
+main :: IO ()
+main = do
+    SDL.initializeAll
+    window <- SDL.createWindow "Game Of Life" SDL.defaultWindow {
+        SDL.windowInitialSize = V2 windowWidth windowHeight
+    }
+    renderer <- SDL.createRenderer window (-1) SDL.defaultRenderer
+
+    let gameState = GameState {
+        isPaused = False,
+        shouldQuit = False,
+        grid = initialGrid
+    }
+
+    -- main loop
+    appLoop gameState renderer
+
+    -- teardown resources
+    SDL.destroyWindow window
+    SDL.quit
