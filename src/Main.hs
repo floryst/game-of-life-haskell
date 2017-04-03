@@ -9,6 +9,7 @@ import Control.Monad (unless, guard)
 import Foreign.C.Types
 import Debug.Trace
 import Data.Vector ((!))
+import Data.Word (Word32)
 import qualified Data.Vector as Vector
 
 type CellGrid = Vector.Vector (Vector.Vector Bool)
@@ -16,11 +17,16 @@ type CellGrid = Vector.Vector (Vector.Vector Bool)
 data GameState = GameState {
     isPaused :: Bool,
     shouldQuit :: Bool,
-    grid :: CellGrid
+    grid :: CellGrid,
+    lastUpdateTime :: Word32
 } deriving (Show)
 
 windowWidth, windowHeight :: CInt
 (windowWidth, windowHeight) = (900, 900)
+
+-- in milliseconds
+gameTimeStep :: Word32
+gameTimeStep = 1000
 
 -- cell dimensions must be a square, and a factor of window width/height
 -- that is, window width/height must be a multiple of cell side length
@@ -76,9 +82,11 @@ getAliveCellCoords cellGrid = do
 liveNeighbors :: Int -> Int -> CellGrid -> Int
 liveNeighbors x y cellGrid = sum $ map fromEnum neighbors
   where
+    coordSum (a, b) (c, d) = (a+c, b+d)
     neighborLocations =
         [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
-    neighbors = map (gridAt cellGrid) neighborLocations
+    neighbors = map (gridAt cellGrid . coordSum (x, y)) neighborLocations
+
 
 stepGameOfLife :: CellGrid -> CellGrid
 stepGameOfLife cellGrid = newGrid
@@ -204,6 +212,19 @@ appLoop gameState renderer = do
     event <- SDL.pollEvent
     gameState <- processEvents gameState event
     drawGrid (grid gameState) renderer
+
+    ticks <- SDL.ticks
+    gameState <- do
+        if not $ isPaused gameState
+            then if (lastUpdateTime gameState) + gameTimeStep < ticks
+                then return gameState {
+                    grid = stepGameOfLife $ grid gameState,
+                    lastUpdateTime = ticks
+                }
+                else return gameState
+            else return gameState
+
+    -- should I use threadDelay instead? *shrugs*
     SDL.delay 10
     unless (shouldQuit gameState) (appLoop gameState renderer)
 
@@ -216,9 +237,11 @@ main = do
     renderer <- SDL.createRenderer window (-1) SDL.defaultRenderer
 
     let gameState = GameState {
-        isPaused = False,
+        -- don't evolve just yet
+        isPaused = True,
         shouldQuit = False,
-        grid = initialGrid
+        grid = initialGrid,
+        lastUpdateTime = 0
     }
 
     -- main loop
