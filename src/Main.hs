@@ -8,6 +8,7 @@ import Data.Maybe
 import Control.Monad (unless, guard)
 import Foreign.C.Types
 import Debug.Trace
+import Data.Vector ((!))
 import qualified Data.Vector as Vector
 
 data GameState = GameState {
@@ -39,6 +40,14 @@ initialGrid = Vector.replicate height . Vector.replicate width $ False
     height = (fromIntegral windowHeight) `quot` cellSideLength
     width = (fromIntegral windowWidth) `quot` cellSideLength
 
+-- access grid as if on a torus
+gridAt :: Vector.Vector (Vector.Vector Bool) -> (Int, Int) -> Bool
+gridAt cellGrid (x, y) = (cellGrid!(y `mod` height))!(x `mod` width)
+  where
+    height = length cellGrid
+    -- grid rows should all be same length
+    width = length $ cellGrid!1
+
 -- toggle state of cell at grid coord (x, y)
 toggleCellState :: (Int, Int) -> GameState -> GameState
 toggleCellState targetCoord gameState = gameState { grid = newGrid }
@@ -65,6 +74,25 @@ getAliveCellCoords gameState = do
   where
     cellGrid = grid gameState
     enumerate = zip [0..]
+
+liveNeighbors :: Int -> Int -> Vector.Vector (Vector.Vector Bool) -> Int
+liveNeighbors x y cellGrid = sum $ map fromEnum neighbors
+  where
+    neighborLocations =
+        [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    neighbors = map (gridAt cellGrid) neighborLocations
+
+stepGameOfLife :: GameState -> GameState
+stepGameOfLife gameState = gameState { grid = newGrid }
+  where
+    cellGrid = grid gameState
+    gameRule cell neighs = (neighs >= 2 && cell) || neighs == 3
+    -- for every row,
+    newGrid = Vector.map updateRow $ Vector.indexed cellGrid
+    -- for every cell,
+    updateRow (y, row) = Vector.map (updateCell y) $ Vector.indexed row
+    -- update cell based on rules
+    updateCell y (x, cell) = gameRule cell $ liveNeighbors x y cellGrid
 
 --
 -- Event handling
@@ -174,7 +202,7 @@ drawGrid gameState renderer = do
 appLoop :: GameState -> SDL.Renderer -> IO ()
 appLoop gameState renderer = do
     event <- SDL.pollEvent
-    gameState <- processEvents  gameState event
+    gameState <- processEvents gameState event
     drawGrid gameState renderer
     SDL.delay 10
     unless (shouldQuit gameState) (appLoop gameState renderer)
